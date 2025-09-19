@@ -1,5 +1,5 @@
 experiment_name: "full_exp_llama2_7b"
-output_dir: ".research/iteration2"
+output_dir: ".research/iteration3"
 model_name: "NousResearch/Llama-2-7b-chat-hf"
 seeds: [11, 17, 23]
 
