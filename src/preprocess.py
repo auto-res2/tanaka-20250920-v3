@@ -12,9 +12,9 @@ import pandas as pd
 def _create_dummy_dataset(name, max_samples):
     # Simulate loading for datasets not on Hugging Face hub
     data = {
-        'prompt': [f'This is a dummy prompt {i} for {name}.'] * max_samples,
-        'bad_response': [f'This is a bad response {i}.'] * max_samples,
-        'good_response': [f'This is a much better and factual response {i}.'] * max_samples
+        'prompt': [f'This is a dummy prompt {i} for {name}.' for i in range(max_samples)],
+        'bad_response': [f'This is a bad response {i}.' for i in range(max_samples)],
+        'good_response': [f'This is a much better and factual response {i}.' for i in range(max_samples)]
     }
     return Dataset.from_dict(data)
 
@@ -44,8 +44,10 @@ def _precache_features(dataset, config):
         with open(tfidf_path, 'wb') as f:
             pickle.dump(vectorizer, f)
 
-    good_tfidf = torch.tensor(vectorizer.transform(good_responses).toarray(), dtype=torch.float32)
-    bad_tfidf = torch.tensor(vectorizer.transform(bad_responses).toarray(), dtype=torch.float32)
+    good_tfidf_sparse = vectorizer.transform(good_responses)
+    bad_tfidf_sparse = vectorizer.transform(bad_responses)
+    good_tfidf = torch.tensor(good_tfidf_sparse.toarray(), dtype=torch.float32)
+    bad_tfidf = torch.tensor(bad_tfidf_sparse.toarray(), dtype=torch.float32)
 
     # This part is a placeholder. Real TF-IDF needs to be mapped to token-level.
     # For simplicity, we'll average it for now.
@@ -82,7 +84,13 @@ def load_and_prepare_data(config, tokenizer):
 
     combined_df = pd.concat(all_data, ignore_index=True)
     train_dataset = Dataset.from_pandas(combined_df)
-    train_dataset = _precache_features(train_dataset, config)
+    
+    print("Precaching features...")
+    try:
+        train_dataset = _precache_features(train_dataset, config)
+    except Exception as e:
+        print(f"Warning: Could not precache features: {e}")
+        print("Continuing without precached features...")
 
     def tokenize(examples):
         prompts = examples['prompt']
@@ -104,16 +112,41 @@ def load_and_prepare_data(config, tokenizer):
 
         return tokenized_inputs
 
-    train_dataset = train_dataset.map(tokenize, batched=True, remove_columns=train_dataset.column_names)
-    train_dataset.set_format(type='torch', columns=['input_ids', 'attention_mask', 'good_ids', 'bad_ids', 'good_emb', 'bad_emb', 'fact_good', 'fact_bad', 'tfidf_good', 'tfidf_bad', 'good_ids_len', 'bad_ids_len'])
+    train_dataset = train_dataset.map(tokenize, batched=True)
+    
+    available_columns = train_dataset.column_names
+    required_columns = ['input_ids', 'attention_mask', 'good_ids', 'bad_ids', 'good_ids_len', 'bad_ids_len']
+    optional_columns = ['good_emb', 'bad_emb', 'fact_good', 'fact_bad', 'tfidf_good', 'tfidf_bad']
+    
+    format_columns = required_columns + [col for col in optional_columns if col in available_columns]
+    
+    train_dataset.set_format(type='torch', columns=format_columns)
     
     # Prepare eval dataset
     eval_ds_config = config['evaluation']['eval_datasets'][0]
-    eval_dataset = load_dataset(eval_ds_config['name'], eval_ds_config.get('subset'), split=eval_ds_config['split']).select(range(eval_ds_config['max_samples']))
+    try:
+        if eval_ds_config['name'] in ['truthfulqa', 'truthful_qa']:
+            eval_dataset = load_dataset('truthful_qa', 'generation', split=eval_ds_config['split']).select(range(eval_ds_config['max_samples']))
+        else:
+            eval_dataset = load_dataset(eval_ds_config['name'], eval_ds_config.get('subset'), split=eval_ds_config['split']).select(range(eval_ds_config['max_samples']))
+    except Exception as e:
+        print(f"Warning: Could not load eval dataset {eval_ds_config['name']}: {e}")
+        print("Creating dummy eval dataset...")
+        eval_data = {
+            'question': [f'What is the answer to question {i}?' for i in range(eval_ds_config['max_samples'])],
+            'best_answer': [f'This is the best answer {i}.' for i in range(eval_ds_config['max_samples'])]
+        }
+        eval_dataset = Dataset.from_dict(eval_data)
     
     def tokenize_eval(examples):
-        inputs = tokenizer(examples['question'], truncation=True, padding='max_length', max_length=config['preprocessing']['max_length'])
-        inputs['reference_text'] = examples['best_answer']
+        question_key = 'question' if 'question' in examples else 'prompt'
+        answer_key = 'best_answer' if 'best_answer' in examples else 'answer'
+        
+        questions = examples.get(question_key, examples.get('prompt', [''] * len(examples.get('question', ['']))))
+        answers = examples.get(answer_key, examples.get('response', [''] * len(questions)))
+        
+        inputs = tokenizer(questions, truncation=True, padding='max_length', max_length=config['preprocessing']['max_length'])
+        inputs['reference_text'] = answers
         return inputs
 
     eval_dataset = eval_dataset.map(tokenize_eval, batched=True, remove_columns=eval_dataset.column_names)

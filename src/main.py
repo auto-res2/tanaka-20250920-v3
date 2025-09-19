@@ -36,6 +36,17 @@ def main():
     try:
         with open(config_path, 'r') as f:
             config = yaml.safe_load(f)
+        
+        if 'training_args' in config:
+            for key in ['learning_rate', 'max_grad_norm']:
+                if key in config['training_args']:
+                    config['training_args'][key] = float(config['training_args'][key])
+        
+        if 'soft_far_params' in config:
+            for key in ['lambda_fact', 'delta_w2', 'sinkhorn_epsilon']:
+                if key in config['soft_far_params']:
+                    config['soft_far_params'][key] = float(config['soft_far_params'][key])
+                    
     except Exception as e:
         print(f"Error loading YAML config: {e}")
         return

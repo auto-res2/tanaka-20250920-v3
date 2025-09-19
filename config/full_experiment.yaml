@@ -1,5 +1,5 @@
 experiment_name: "full_exp_llama2_7b"
-output_dir: ".research/iteration1"
+output_dir: ".research/iteration2"
 model_name: "NousResearch/Llama-2-7b-chat-hf"
 seeds: [11, 17, 23]
 
@@ -21,7 +21,7 @@ training_args:
   max_steps: 85000
   per_device_train_batch_size: 4
   gradient_accumulation_steps: 8
-  learning_rate: 2e-5
+  learning_rate: 0.00002
   warmup_steps: 100
   max_grad_norm: 1.0
   fp16: true
@@ -35,7 +35,7 @@ soft_far_params:
 evaluation:
   per_device_eval_batch_size: 4
   eval_datasets:
-    - name: "truthfulqa"
+    - name: "truthful_qa"
       split: "validation"
       subset: "generation"
       max_samples: 817

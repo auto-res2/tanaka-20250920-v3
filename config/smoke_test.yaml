@@ -1,5 +1,5 @@
 experiment_name: "smoke_test_phi2"
-output_dir: ".research/iteration1"
+output_dir: ".research/iteration2"
 model_name: "microsoft/phi-2"
 seeds: [42]
 
@@ -21,7 +21,7 @@ training_args:
   max_steps: 10
   per_device_train_batch_size: 1
   gradient_accumulation_steps: 2
-  learning_rate: 5e-5
+  learning_rate: 0.00005
   warmup_steps: 2
   max_grad_norm: 1.0
   fp16: true
@@ -35,7 +35,7 @@ soft_far_params:
 evaluation:
   per_device_eval_batch_size: 2
   eval_datasets:
-    - name: "truthfulqa"
+    - name: "truthful_qa"
       split: "validation"
       subset: "generation"
       max_samples: 20
