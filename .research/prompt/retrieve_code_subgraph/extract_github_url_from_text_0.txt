@@ -1,0 +1,17 @@
+
+Input:
+# Task
+You carefully read the contents of the “Paper Outline” and select one GitHub link from the “GitHub URLs List” that you think is most relevant to the contents.
+# Constraints
+- Output the index number corresponding to the selected GitHub URL.
+- Be sure to select only one GitHub URL.
+- If there is no related GitHub link, output None.
+# Paper Outline
+FIGA's methodology involves two key components: a specially curated alignment dataset called SPA and a novel fine-tuning loss function. The SPA dataset is constructed by first generating initial responses (ˆY) from an LLM (e.g., Alpaca-7b) for existing instruction and preference datasets. These responses are then filtered using a reward model to identify queries where the LLM performs suboptimally (RˆY < η1, RY > η2, RY - RˆY > η3). Subsequently, a powerful LLM (e.g., ChatGPT) revises these initial low-quality responses (ˆY) into high-quality pseudo-reference responses (˜Y), aiming for minimal adjustments to reduce distribution shifts. The fine-tuning process utilizes Levenshtein distance to compare ˆY and ˜Y, identifying newly added/substituted (desired) and deleted/substituted (undesired) tokens. Token-level weighting functions, ˜r(·) and ˆr(·), are applied: ˜r(·) rewards desired tokens (α=1) and ˆr(·) penalizes undesired tokens (β=0.5), while common tokens are largely ignored (γ=0). The final loss function encourages the probability of desired words and decreases that of undesired words, effectively acting as a simplified, efficient version of RL without needing a separate critic model.
+
+# GitHub URLs List
+['https://github.com/RUCAIBox/FIGA', 'https://github.com/OpenLLMAI/OpenLLaMA2', 'https://github.com/tatsu-lab/stanford_alpaca', 'https://github.com/EleutherAI/lm-evaluation-harness']
+Output:
+{
+    "index": 0
+}
