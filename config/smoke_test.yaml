@@ -1,0 +1,41 @@
+experiment_name: "smoke_test_phi2"
+output_dir: ".research/iteration1"
+model_name: "microsoft/phi-2"
+seeds: [42]
+
+datasets:
+  - name: "zhihanyang/sharegpt-cleaned"
+    split: "train"
+    max_samples: 100
+  - name: "custom/spa"
+    max_samples: 50
+  - name: "custom/auto-fact-corr"
+    max_samples: 50
+
+preprocessing:
+  max_length: 256
+  embedding_model: "sentence-transformers/all-MiniLM-L6-v2"
+  tfidf_path: "./.cache/tfidf_smoke.pkl"
+
+training_args:
+  max_steps: 10
+  per_device_train_batch_size: 1
+  gradient_accumulation_steps: 2
+  learning_rate: 5e-5
+  warmup_steps: 2
+  max_grad_norm: 1.0
+  fp16: true
+
+soft_far_params:
+  lambda_fact: 0.7
+  delta_w2: 0.1
+  sinkhorn_epsilon: 0.05
+  sinkhorn_iters: 6
+
+evaluation:
+  per_device_eval_batch_size: 2
+  eval_datasets:
+    - name: "truthfulqa"
+      split: "validation"
+      subset: "generation"
+      max_samples: 20

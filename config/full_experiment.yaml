@@ -1,0 +1,45 @@
+experiment_name: "full_exp_llama2_7b"
+output_dir: ".research/iteration1"
+model_name: "NousResearch/Llama-2-7b-chat-hf"
+seeds: [11, 17, 23]
+
+datasets:
+  - name: "zhihanyang/sharegpt-cleaned"
+    split: "train"
+    max_samples: 30004
+  - name: "custom/spa"
+    max_samples: 17121
+  - name: "custom/auto-fact-corr"
+    max_samples: 10022
+
+preprocessing:
+  max_length: 768
+  embedding_model: "sentence-transformers/e5-large-v2"
+  tfidf_path: "./.cache/tfidf_full.pkl"
+
+training_args:
+  max_steps: 85000
+  per_device_train_batch_size: 4
+  gradient_accumulation_steps: 8
+  learning_rate: 2e-5
+  warmup_steps: 100
+  max_grad_norm: 1.0
+  fp16: true
+
+soft_far_params:
+  lambda_fact: 0.7
+  delta_w2: 0.1
+  sinkhorn_epsilon: 0.05
+  sinkhorn_iters: 6
+
+evaluation:
+  per_device_eval_batch_size: 4
+  eval_datasets:
+    - name: "truthfulqa"
+      split: "validation"
+      subset: "generation"
+      max_samples: 817
+    - name: "fever"
+      split: "paper_dev"
+      subset: "v1.0"
+      max_samples: 9654
