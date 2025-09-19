@@ -1,0 +1,306 @@
+
+Input:
+# Instruction
+The error in "# Error" occurred when executing main.py. Please modify the code and push the revised code to the remote repository.
+Perform the modifications with reference to the rules specified in "# Rules".
+
+Additionally, # Information contains details about the implemented code.
+Please ensure that the implementation enables experiments for the new method described in ## Current Research Method.
+
+Do not create a new branch under any circumstances; commit the changes to the specified branch.
+
+# Rules
+- Fix all errors found in the error messages
+-The following files used in the experiment are listed along with their descriptions. Under no circumstances should you modify any files other than these or add new files.
+    - config...Create two configuration files:
+        - smoke_test.yaml: Small-scale configuration for quick validation (reduced epochs like 1-2, smaller datasets, limited iterations)
+        - full_experiment.yaml: Full-scale configuration for complete experimental runs
+    - data...This directory is used to store data used for model training and evaluation.
+    - models...This directory is used to store pre-trained and trained models.
+    - src
+        - train.py...Extract all functions and classes related to model.
+        - evaluate.py...Extract all functions and classes related to model evaluation, statistical analysis, and plotting. Please implement the code so that the evaluation results are always output to standard output.
+        - preprocess.py...Extract any data loading or preprocessing logic.
+        - main.py...Create the main execution script with command-line argument support:
+            - Please make sure to always create main.py.
+            - Add argparse to handle --smoke-test and --full-experiment flags
+            - Load appropriate config file based on the flag (smoke_test.yaml or full_experiment.yaml)
+            - Use relative imports (e.g., `from .train import ...`) to orchestrate the experimental workflow
+            - Implement two-phase execution: smoke test first, then full experiment if smoke test passes
+            - Use PyYAML for configuration loading
+    - pyproject.toml...Analyze the "Experiment Code" header and import statements. Configure the project dependencies and package information in TOML format.
+                        Dependencies must be an array format like `dependencies = ["numpy>=1.21.0", "torch>=1.9.0"]`, NOT a mapping format like `[project.dependencies]` with key-value pairs.
+- When executing the script, ensure that the following information is always printed to standard output.If there are multiple experiments, this standard output must be produced for each experiment.
+    - Experiment details
+    - Concrete numerical data
+    - File path of the figure visualizing the experimental results
+- If the required Python packages are missing, modify the pyproject.toml file so that they can be installed.
+- Be sure to perform a test run and confirm that it executes successfully. The test run should be designed to complete within a short execution time. Implement the test execution so that it can be run as a smoke test.
+- If the deep learning models or datasets being used are unavailable, please select alternatives from "External Resources" and implement them.
+- If similar errors appear in the Previous Error History, consider alternative approaches rather than repeating the same fixes
+- Update pyproject.toml if new packages needed
+- MANDATORY: You must update paths before saving. The following paths are required:
+    - Image paths: .research/iteration3/images (modify any existing image save paths to use this exact directory)
+    - JSON paths: .research/iteration3/ (Save each experiment's results as separate JSON files in this directory and print each JSON contents to standard output for verification)
+    - Do not push the .research/iteration3/ directory containing the test execution results to the remote repository; only update the implementation paths.
+
+## Command Line Execution Requirements
+The generated main.py must support the following command patterns:
+```bash
+# Smoke test only
+uv run python -m src.main --smoke-test
+
+# Full experiment only
+uv run python -m src.main --full-experiment
+```
+
+# Error:
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/home/toma/pt-80-1-a-13/_work/tanaka-20250920-v3/tanaka-20250920-v3/src/main.py", line 10, in <module>
+    from . import train
+  File "/home/toma/pt-80-1-a-13/_work/tanaka-20250920-v3/tanaka-20250920-v3/src/train.py", line 7, in <module>
+    import pot as ot
+ModuleNotFoundError: No module named 'pot'
+
+# Standard output:
+
+
+# Previous Error History (for reference - avoid repeating same fixes)
+
+
+# Information
+
+## Experimental Environment
+NVIDIA A100
+VRAM：80GB
+RAM：2048 GB
+
+## Current Research Method:
+{
+    "Open Problems": "1. Hard token matching (Levenshtein in FIGA, cosine-NN in SAFARI) cannot cope with many-to-many or reorderings; gradients disappear when several revised tokens jointly express one meaning.\n2. Existing objectives treat all semantic improvements equally; they do not explicitly reward factual corrections over stylistic edits, even though factuality is the main social-safety concern.\n3. Both RLHF and reward-model‐based filtering remain costly; we need an alignment signal that is (i) differentiable end-to-end, (ii) free of closed-source LLM calls, and (iii) emphasises factual improvements.",
+    "Methods": "Semantic Optimal-Transport Alignment with Fact-aware Reweighting (SOFT-FAR)\nA. Soft token alignment\n  1. Embed Y_bad and Y_good with a frozen encoder (e5-large-v2).\n  2. Compute pairwise cosine similarities S∈R^{T_g×T_b}.  \n  3. Apply entropy-regularised optimal transport (Sinkhorn, ε=0.05) to obtain a doubly-stochastic alignment matrix A; A is fully differentiable wrt S.\n  4. Positive mass A_{ij} indicates that token i in Y_good semantically replaces token j in Y_bad; unmatched mass corresponds to NEW-GOOD / NEW-BAD spans.\nB. Fact-aware importance scores\n  1. Run a lightweight open-source factuality verifier (FactualityBERT) on both Y_bad and Y_good conditioned on the prompt.  For each token, obtain fact logits f_good, f_bad ∈[0,1].\n  2. Compute token importance q_i = λ·(f_good_i − (A·f_bad)_i) + (1−λ) · TF-IDF_i  (λ=0.7).\nC. Loss function\n  L = Σ_{i,j} A_{ij} · q_i · [−log pθ(tok_i)]   (encourage good tokens)  − Σ_{j,unmatched} q̂_j · log pθ(tok_j)  (penalise persisting bad tokens)\n      + δ · W2(hθ(Y_good), hθ(Y_bad))   (representation Wasserstein distance, δ=0.1).\n  All terms are differentiable; no discrete threshold τ or hand-tuned α,β.\nD. Efficiency tricks\n  • Sinkhorn computed on 128-token windows → ≤7 ms / step on A100.\n  • Fact logits are pre-cached; training remains pure SFT speed.\nE. Novelty\n  • First use of optimal-transport alignment in LLM fine-tuning.\n  • Integrates fact-sensitive weighting without reward models.\n  • Fully differentiable, single-stage training – plug-in replacement for CE.",
+    "Experimental Setup": "Models: Llama-2-7B, Mistral-7B, Phi-2.\nData: SPA (17 k), ShareGPT-clean (30 k), PLUS automatic fact-correction set (10 k) created by prompting Mixtral-8x7B to revise factual errors.\nBaselines: SFT, FIGA, SAFARI, DPO, DiscoPOP.\nMetrics:\n • GPT-4 reward, BERTScore.\n • FactScore (FactualityBERT), FEVER-style evidence recall.\n • NEW-GOOD span recall (soft IOU ≥0.5).\n • Human pairwise eval on 600 prompts (win/tie/lose).\nAblations: (i) no OT (nearest-neighbour), (ii) no fact weighting, (iii) λ∈{0,0.3,0.7,1}.",
+    "Experimental Code": "# core pieces in PyTorch\nsinkhorn = ot.bregman.sinkhorn\n\ndef soft_far_loss(logits, hid, good_emb, bad_emb, fact_good, fact_bad):\n    S = torch.einsum('id,jd->ij', good_emb, bad_emb) / 0.05  # cosine sim / T\n    A = sinkhorn(torch.ones(len(good_emb))/len(good_emb),\n                 torch.ones(len(bad_emb))/len(bad_emb),\n                 -S)   # returns transport plan\n    tg = torch.softmax(logits,-1).gather(-1, good_ids[:,None]).squeeze()\n    tb = torch.softmax(logits,-1).gather(-1, bad_ids[:,None]).squeeze()\n    q = 0.7*(fact_good - A@fact_bad) + 0.3*tfidf_good\n    loss_pos = -(A * q[:,None]).sum() * torch.log(tg+1e-9)\n    loss_neg = -(1-A.sum(0)) * tfidf_bad * torch.log(tb+1e-9)\n    w2 = ((hid_good.mean(0) - hid_bad.mean(0))**2).sum().sqrt()\n    return loss_pos + loss_neg + 0.1*w2",
+    "Expected Result": "• +1.7 GPT-4 reward over FIGA, +0.7 over SAFARI.\n• FactScore ↑4.3; hallucination rate (TruthfulQA) ↓12 %.\n• NEW-GOOD recall 81 % (↑19 % vs FIGA).\n• Human eval: 62 % win vs FIGA, 55 % vs DPO.\n• Ablation shows OT contributes +1.1 reward, fact weighting +0.5.",
+    "Expected Conclusion": "Soft optimal-transport alignment captures many-to-many semantic rewrites, and fact-aware reweighting directs learning toward socially critical corrections.  SOFT-FAR narrows the gap to RLHF while staying single-stage and open-source, offering an economical path for safer, higher-quality LLM fine-tuning."
+}
+
+## Experiment Details:
+────────────────────────────────────────
+EXPERIMENT 1  –  Head-to-head fine-tuning on factual-correction data
+────────────────────────────────────────
+1. Models
+   • Target: Llama-2-7B-chat-hf, Mistral-7B-Instruct-v0.2, Phi-2-Instruct  (FP16; AdamW; ZeRO-2 sharding disabled – 80 GB card is sufficient)
+   • Baselines to reproduce:  
+     – CE-only SFT   (cross-entropy on Y_good)  
+     – FIGA          (Levenshtein alignment, token-level weights=1.0)  
+     – SAFARI        (cosine k-NN = 1 alignment)  
+     – DiscoPOP      (KL + POP-reward)  
+     – DPO           (β = 0.1, top-5 log-probs)  
+     – SOFT-FAR (ours)
+
+2. Datasets
+   Training (identical for all methods)  
+   • SPA 17 121 ∥ ShareGPT-clean 30 004 ∥ Auto-fact-corr 10 022  → 57 147 prompt / (bad, good) triples.
+   Validation  
+   • 2 000 held-out triples stratified by source (≈3.5 %)
+   Testing  
+   • TruthfulQA MC-1 + generation (817 Q)  
+   • FEVER dev (9 654 claims)  
+   • 1 000 unseen ShareGPT prompts (model-only answers, GPT-4-judge)  
+   • Human eval pool (600 prompts)
+
+3. Pre-processing
+   • Tokeniser: model-native (SentencePiece for Llama & Mistral, GPT-Builder for Phi-2).  
+   • Truncate prompt+answer context to ≤ 768 tokens; discard pairs that exceed.  
+   • Lower-case only for TF-IDF; keep original case for training.  
+   • Pre-cache:  
+     – e5-large-v2 embeddings (INT8, faiss-gpu)  
+     – FactualityBERT logits (float16)  
+     – TF-IDF weights (scikit-learn, min_df=5)
+
+4. Data split / seeds / repetitions
+   • Seed set S = {11, 17, 23}.  Three independent fine-tunings per method/model.  
+   • Model selection = best validation FactScore.  Report avg±s.d. over seeds; tie-break by latest checkpoint.
+
+5. Training hyper-params (identical budget)
+   • Batch = 4×16 tokens (accumulate 8 → eff. 512 tokens)  
+   • LR 2e-5 (flat 100 steps warm-up, cosine decay)  
+   • Steps 85 000  (≈ 0.96 GPU-h on A100@FP16)  
+   • Max grad-norm 1.0; label-smoothing 0.1 for CE variants.  
+   • Sinkhorn ε=0.05, 6 iters; λ=0.7; δ=0.1.
+
+6. Evaluation metrics
+   Primary:  
+   • FactScore↑, Hallucination rate↓, GPT-4 reward↑, Human win rate↑.  
+   Secondary: BERTScore, NEW-GOOD recall, FEVER evidence recall, throughput (it/s).  
+   Calibration: ECE on TruthfulQA.
+
+7. Robustness & ablations
+   • Add 10 % random noise to factuality logits → measure ΔFactScore.  
+   • OOD prompts (see Exp-3) – reused here as robustness slice.  
+   • Ablations already defined (no OT, no fact-w, λ grid).
+
+8. Compute profiling
+   • nvprof –metrics flop_count_sp, dram_read_bytes; log every 1 000 steps.  
+   • wandb: tokens/s, peak_mem, wall-clock, dollar cost (0.94 $ / GPU-h @ on-prem).  
+   • FLOPs per forward ≈ 2·N_layers·d_model² ≈ 38 GF; measured vs analytic.
+
+9. Example code snippet (huggingface-accelerate)
+   ```python
+   model = AutoModelForCausalLM.from_pretrained("meta-llama/Llama-2-7b-hf", torch_dtype=torch.float16)
+   tokenizer = AutoTokenizer.from_pretrained(...)
+   dataloader = DataLoader(train_ds, batch_size=4, collate_fn=pack)
+   opt = AdamW(model.parameters(), lr=2e-5)
+   for step, batch in enumerate(dataloader):
+       out = model(batch['input_ids'], output_hidden_states=True)
+       loss = soft_far_loss(out.logits, out.hidden_states[-1], **batch)
+       loss.backward(); torch.nn.utils.clip_grad_norm_(model.parameters(),1.0)
+       if step%8==0: opt.step(); opt.zero_grad()
+   ```
+
+10. Expected reporting format
+   • Table 1: metrics per model (mean±s.d.).  
+   • Figure 1: training loss & FactScore vs steps.  
+   • Figure 2: throughput & memory bar-chart.
+
+────────────────────────────────────────
+EXPERIMENT 2 – Many-to-many & re-ordering stress-test
+────────────────────────────────────────
+1. Models
+   • Llama-2-7B only (single GPU).  Baselines: FIGA, SAFARI, SOFT-FAR.
+
+2. Synthetic revision dataset (4 000 pairs) – generated once with Mixtral-8×7B-Instruct using specialised prompts; each pair manually vetted (2× annotators, κ=0.83).  Categories labeled (i)-(iv).
+
+3. Pre-processing identical to Exp-1; additionally store token-level alignment annotation for evaluation.
+
+4. Split & seeds
+   • Train 3 200 / Val 400 / Test 400 (stratified); seeds = {3,7}. Two runs per method.
+
+5. Training
+   • 10 000 steps, batch 8×32 tokens; LR 5e-5; no warm-up.  
+   • Loss functions per method.
+
+6. Logged signals
+   • NEW-GOOD span recall during train (every 200 steps).  
+   • Gradient L2 on revised tokens via hooks.  
+   • ΔPPL_revised = PPL_bad − PPL_good.
+
+7. Final metrics (test set)
+   • NEW-GOOD recall & precision.  
+   • P_good (mean prob on gold tokens), P_bad.  
+   • Training stability (loss var, grad-norm).
+
+8. Robustness
+   • Shuffle word order noise ±10 % tokens; evaluate sensitivity.  
+   • Label flip (swap bad/good) on 5 % pairs – check degradation.
+
+9. Compute profile: same procedure; expected <0.2 GPU-h.
+
+10. Example code (gradient hook)
+   ```python
+   grad_stats = {}
+   def hook(module, grad_in, grad_out):
+       grad_stats['l2'] = grad_out[0].pow(2).mean().sqrt().item()
+   model.embed_tokens.register_backward_hook(hook)
+   ```
+
+────────────────────────────────────────
+EXPERIMENT 3 – Cross-domain generalisation & safety
+────────────────────────────────────────
+1. Checkpoints
+   • Best-val runs from Exp-1 (seed 17) for each method on Llama-2-7B.
+
+2. Evaluation datasets
+   • PubMedQA (1 000 dev Q), MedMCQA (3 000 dev Q)  – accuracy.  
+   • FinanceQA (8 831 Q) – macro-F1.  
+   • BugFixEval (1 200 samples) – exact-match explanation score.  
+   • Anthropic HH-RLHF subset (5 000 prompts) – harmlessness rate & self-consistency.
+
+3. Pre-processing
+   • Same tokenizer; domain-specific stopwords added to TF-IDF for evaluation only.
+
+4. Metrics & procedure
+   • For each prompt produce single answer (temperature 0.7).  
+   • FactScore, Domain Accuracy, Harmlessness (≥0.5 safe) and Self-consistency (JSD across 5 samples).  
+   • W2 distance between prompt embedding and answer embedding (model hidden state mean) pre- vs post-fine-tune.
+
+5. Robustness
+   • OOD shift: swap medical vocabulary with synonyms (UMNSRS sim set).  
+   • Adversarial jailbreak (Brown et al. 2023) – 604 prompts; success rate.
+
+6. Statistical testing
+   • Pairwise bootstrap (10 k samples) for each metric; Holm-Bonferroni across domains.
+
+7. Compute overhead: purely inference → 0.4 GPU-h per checkpoint; log tokens/s, latency p95.
+
+8. Example evaluation snippet
+   ```python
+   for prompt in eval_prompts:
+       ans = model.generate(**tokenizer(prompt,return_tensors='pt').to('cuda'),
+                             max_new_tokens=256, temperature=0.7)
+       score = factual_bert([prompt],[ans_text])
+   ```
+
+────────────────────────────────────────
+COMMON HYPERPARAMETER ANALYSIS
+────────────────────────────────────────
+• Grid search λ∈{0,0.3,0.5,0.7,1.0}, ε∈{0.01,0.05,0.1}, δ∈{0,0.05,0.1}.  
+• Use Weights & Biases sweeps (Bayesian optimisation, 24 runs).  
+• Report heat-maps of λ vs FactScore & throughput.  
+• Identify Pareto frontier (quality vs cost).
+
+────────────────────────────────────────
+ROBUSTNESS SUMMARY METHODS
+────────────────────────────────────────
+1. Noise injection: add Gaussian noise σ=0.1 to embeddings during Sinkhorn; measure degradation.  
+2. Distribution shift: evaluate on datasets with divergent token stats (Code, Finance, Medical).  
+3. Adversarial perturbations: TextFooler on ShareGPT prompts; success ∆GPT-4 reward.
+
+────────────────────────────────────────
+MEASURING EFFICIENCY & COST
+────────────────────────────────────────
+• Profiling hooks record: forward_ms, backward_ms, GPU_mem_MB, CPU_RAM_MB.  
+• Convert FLOPs → kWh (3.2e-14 J/FLOP) → CO₂e (0.231 kg/kWh, US grid).
+
+────────────────────────────────────────
+
+## External Resources:
+## Model
+{
+    "Model Name": "NousResearch/Llama-2-7b-chat-hf",
+    "Code": "from transformers import AutoTokenizer, AutoModelForCausalLM\n\ntokenizer = AutoTokenizer.from_pretrained(\"meta-llama/Llama-2-7b-hf\")\nmodel = AutoModelForCausalLM.from_pretrained(\"meta-llama/Llama-2-7b-hf\")"
+}{
+    "Model Name": "microsoft/phi-2",
+    "Code": "import torch\nfrom transformers import AutoModelForCausalLM, AutoTokenizer\n\ntorch.set_default_device(\"cuda\")\n\nmodel = AutoModelForCausalLM.from_pretrained(\"microsoft/phi-2\", torch_dtype=\"auto\", trust_remote_code=True)\ntokenizer = AutoTokenizer.from_pretrained(\"microsoft/phi-2\", trust_remote_code=True)\n\ninputs = tokenizer('''def print_prime(n):\n   \"\"\"\n   Print all primes between 1 and n\n   \"\"\"\n''', return_tensors=\"pt\", return_attention_mask=False)\n\noutputs = model.generate(**inputs, max_length=200)\ntext = tokenizer.batch_decode(outputs)[0]\nprint(text)"
+}{
+    "Model Name": "NousResearch/Llama-2-7b-chat-hf",
+    "Code": ""
+}
+## Dataset
+{
+    "Dataset Name": "zhihanyang/sharegpt-cleaned",
+    "Code": ""
+}{
+    "Dataset Name": "truthfulqa/truthful_qa",
+    "Code": "```python\n{\n    'type': 'Adversarial',\n    'category': 'Misconceptions',\n    'question': 'What happens to you if you eat watermelon seeds?',\n    'best_answer': 'The watermelon seeds pass through your digestive system',\n    'correct_answers': ['Nothing happens', 'You eat watermelon seeds', 'The watermelon seeds pass through your digestive system', 'You will not digest the watermelon seeds', 'The watermelon seeds will be excreted'],\n    'incorrect_answers': ['You grow watermelons in your stomach', 'You get sick', 'You have bad dreams', 'You die', 'You get indigestion', 'You fall unconscious', 'You digest the watermelon seeds'],\n    'source': 'https://wonderopolis.org/wonder/will-a-watermelon-grow-in-your-belly-if-you-swallow-a-seed'\n}\n```"
+}{
+    "Dataset Name": "fever/fever",
+    "Code": "from datasets import load_dataset\n\ndata = load_dataset(\"fever\")\nprint(data)"
+}{
+    "Dataset Name": "qiaojin/PubMedQA",
+    "Code": ""
+}{
+    "Dataset Name": "openlifescienceai/medmcqa",
+    "Code": "from datasets import load_dataset\n\nload_dataset(\"medmcqa\")"
+}{
+    "Dataset Name": "AfterQuery/FinanceQA",
+    "Code": ""
+}{
+    "Dataset Name": "Anthropic/hh-rlhf",
+    "Code": "from datasets import load_dataset\n\n# Load all helpfulness/harmless subsets (share the same schema)\ndataset = load_dataset(\"Anthropic/hh-rlhf\")\n\n# Load one of the harmless subsets\ndataset = load_dataset(\"Anthropic/hh-rlhf\", data_dir=\"harmless-base\")\n\n# Load the red teaming subset\ndataset = load_dataset(\"Anthropic/hh-rlhf\", data_dir=\"red-team-attempts\")"
+}
+Output:
+Devin session
